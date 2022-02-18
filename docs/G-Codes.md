@@ -300,23 +300,32 @@ extruders this command is used to change the active extruder.
 parameters. If EXTRUDER is not specified, it defaults to the active
 extruder.
 
-#### SET_EXTRUDER_STEP_DISTANCE
-`SET_EXTRUDER_STEP_DISTANCE [EXTRUDER=<config_name>]
+#### SET_EXTRUDER_ROTATION_DISTANCE
+`SET_EXTRUDER_ROTATION_DISTANCE EXTRUDER=<config_name>
 [DISTANCE=<distance>]`: Set a new value for the provided extruder's
-"step distance". The "step distance" is
-`rotation_distance/(full_steps_per_rotation*microsteps)`. Value is not
-retained on Klipper reset. Use with caution, small changes can result
-in excessive pressure between extruder and hot end. Do proper
-calibration steps with filament before use. If 'DISTANCE' value is not
-included command will return current step distance.
+"rotation distance". If the rotation distance is a negative number
+then the stepper motion will be inverted (relative to the stepper
+direction specified in the config file). Changed settings are not
+retained on Klipper reset. Use with caution as small changes can
+result in excessive pressure between extruder and hot end. Do proper
+calibration with filament before use. If 'DISTANCE' value is not
+included command will return current rotation distance.
+
+#### SYNC_EXTRUDER_MOTION
+`SYNC_EXTRUDER_MOTION EXTRUDER=<name> MOTION_QUEUE=<name>`: This
+command will cause the stepper specified by EXTRUDER (as defined in an
+[extruder](Config_Reference#extruder) or
+[extruder_stepper](Config_Reference#extruder_stepper) config section)
+to become synchronized to the movement of an extruder specified by
+MOTION_QUEUE (as defined in an [extruder](Config_Reference#extruder)
+config section). If MOTION_QUEUE is an empty string then the stepper
+will be desynchronized from all extruder movement.
+
+#### SET_EXTRUDER_STEP_DISTANCE
+This command is deprecated and will be removed in the near future.
 
 #### SYNC_STEPPER_TO_EXTRUDER
-`SYNC_STEPPER_TO_EXTRUDER STEPPER=<name> [EXTRUDER=<name>]`: This
-command will cause the given extruder STEPPER (as specified in an
-[extruder](Config_Reference#extruder) or
-[extruder stepper](Config_Reference#extruder_stepper) config section)
-to become synchronized to the given EXTRUDER. If EXTRUDER is an empty
-string then the stepper will not be synchronized to an extruder.
+This command is deprecated and will be removed in the near future.
 
 ### [fan_generic]
 
@@ -327,6 +336,24 @@ enabled.
 #### SET_FAN_SPEED
 `SET_FAN_SPEED FAN=config_name SPEED=<speed>` This command sets the
 speed of a fan. "speed" must be between 0.0 and 1.0.
+
+### [filament_switch_sensor]
+
+The following command is available when a
+[filament_switch_sensor](Config_Reference.md#filament_switch_sensor)
+or
+[filament_motion_sensor](Config_Reference.md#filament_motion_sensor)
+config section is enabled.
+
+#### QUERY_FILAMENT_SENSOR
+`QUERY_FILAMENT_SENSOR SENSOR=<sensor_name>`: Queries the current
+status of the filament sensor. The data displayed on the terminal will
+depend on the sensor type defined in the configuration.
+
+#### SET_FILAMENT_SENSOR
+`SET_FILAMENT_SENSOR SENSOR=<sensor_name> ENABLE=[0|1]`: Sets the
+filament sensor on/off. If ENABLE is set to 0, the filament sensor
+will be disabled, if set to 1 it is enabled.
 
 ### [firmware_retraction]
 
@@ -361,32 +388,6 @@ settings.
 #### GET_RETRACTION
 `GET_RETRACTION`: Queries the current parameters used by firmware
 retraction and displays them on the terminal.
-
-### [filament_switch_sensor]
-
-The following command is available when a
-[filament_switch_sensor](Config_Reference.md#filament_switch_sensor)
-or
-[filament_motion_sensor](Config_Reference.md#filament_motion_sensor)
-config section is enabled.
-
-#### QUERY_FILAMENT_SENSOR
-`QUERY_FILAMENT_SENSOR SENSOR=<sensor_name>`: Queries the current
-status of the filament sensor. The data displayed on the terminal will
-depend on the sensor type defined in the configuration.
-
-#### SET_FILAMENT_SENSOR
-`SET_FILAMENT_SENSOR SENSOR=<sensor_name> ENABLE=[0|1]`: Sets the
-filament sensor on/off. If ENABLE is set to 0, the filament sensor
-will be disabled, if set to 1 it is enabled.
-
-### [firmware_retraction]
-
-The following standard G-Code commands are available if a
-[firmware_retraction config section](Config_Reference.md#firmware_retraction)
-is enabled:
-- Retract: `G10`
-- Unretract: `G11`
 
 ### [force_move]
 
