@@ -11,6 +11,9 @@ class ExtruderStepper:
         self.printer = config.get_printer()
         self.name = config.get_name().split()[-1]
         self.pressure_advance = self.pressure_advance_smooth_time = 0.
+        self.config_pa = config.getfloat('pressure_advance', 0., minval=0.)
+        self.config_smooth_time = config.getfloat(
+                'pressure_advance_smooth_time', 0.040, above=0., maxval=.200)
         # Setup stepper
         self.stepper = stepper.PrinterStepper(config)
         ffi_main, ffi_lib = chelper.get_ffi()
@@ -43,6 +46,7 @@ class ExtruderStepper:
     def _handle_connect(self):
         toolhead = self.printer.lookup_object('toolhead')
         toolhead.register_step_generator(self.stepper.generate_steps)
+        self._set_pressure_advance(self.config_pa, self.config_smooth_time)
     def get_status(self, eventtime):
         return {'pressure_advance': self.pressure_advance,
                 'smooth_time': self.pressure_advance_smooth_time}
@@ -79,6 +83,11 @@ class ExtruderStepper:
     cmd_SET_PRESSURE_ADVANCE_help = "Set pressure advance parameters"
     def cmd_default_SET_PRESSURE_ADVANCE(self, gcmd):
         extruder = self.printer.lookup_object('toolhead').get_extruder()
+        if extruder.extruder_stepper is None:
+            raise gcmd.error("Active extruder does not have a stepper")
+        strapq = extruder.extruder_stepper.stepper.get_trapq()
+        if strapq is not extruder.get_trapq():
+            raise gcmd.error("Unable to infer active extruder stepper")
         extruder.extruder_stepper.cmd_SET_PRESSURE_ADVANCE(gcmd)
     def cmd_SET_PRESSURE_ADVANCE(self, gcmd):
         pressure_advance = gcmd.get_float('ADVANCE', self.pressure_advance,
@@ -181,12 +190,12 @@ class PrinterExtruder:
         self.trapq_append = ffi_lib.trapq_append
         self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
         # Setup extruder stepper
-        self.extruder_stepper = ExtruderStepper(config)
-        self.extruder_stepper.stepper.set_trapq(self.trapq)
-        pa = config.getfloat('pressure_advance', 0., minval=0.)
-        smooth_time = config.getfloat('pressure_advance_smooth_time',
-                                      0.040, above=0., maxval=.200)
-        self.extruder_stepper._set_pressure_advance(pa, smooth_time)
+        self.extruder_stepper = None
+        if (config.get('step_pin', None) is not None
+            or config.get('dir_pin', None) is not None
+            or config.get('rotation_distance', None) is not None):
+            self.extruder_stepper = ExtruderStepper(config)
+            self.extruder_stepper.stepper.set_trapq(self.trapq)
         # Register commands
         gcode = self.printer.lookup_object('gcode')
         if self.name == 'extruder':
@@ -201,7 +210,8 @@ class PrinterExtruder:
     def get_status(self, eventtime):
         sts = self.heater.get_status(eventtime)
         sts['can_extrude'] = self.heater.can_extrude
-        sts.update(self.extruder_stepper.get_status(eventtime))
+        if self.extruder_stepper is not None:
+            sts.update(self.extruder_stepper.get_status(eventtime))
         return sts
     def get_name(self):
         return self.name
@@ -259,6 +269,8 @@ class PrinterExtruder:
                           start_v, cruise_v, accel)
         self.last_position = move.end_pos[3]
     def find_past_position(self, print_time):
+        if self.extruder_stepper is None:
+            return 0.
         return self.extruder_stepper.find_past_position(print_time)
     def cmd_M104(self, gcmd, wait=False):
         # Set Extruder Temperature
